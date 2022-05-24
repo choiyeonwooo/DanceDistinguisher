@@ -1,0 +1,1 @@
+watch -c gpustat --color -cp

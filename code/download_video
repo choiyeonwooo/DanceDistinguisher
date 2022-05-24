@@ -1,0 +1,130 @@
+from glob import glob
+from unittest import result
+from instascrape import Reel, Profile
+import time
+import cv2
+import mediapipe as mp
+import os
+from os import listdir
+from os.path import isfile, join
+import numpy as np
+import pickle, json
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+mp_pose = mp.solutions.pose
+
+class DataDownloader():
+    def __init__(self, link_dic):
+        self.link_dic = link_dic
+        return
+
+    def video_download(self):
+        # session id
+        SESSIONID = "8414488221%3AK7JMyqNXl1whsT%3A1"
+        # Header with session id
+        headers = {
+        	"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36",
+        	"cookie": f'sessionid={SESSIONID};'
+        }
+        # Passing Instagram reel link as argument in Reel Module
+        insta_reel = Reel('https://www.instagram.com/tv/CdlF5B4hBsP/?utm_source=ig_web_copy_link')
+        # Using scrape function and passing the headers
+        insta_reel.scrape()
+        insta_reel.download("./videos/test.mp4")
+
+
+        # for idx, file in enumerate(self.link_dic["links"]):
+        #     # Passing Instagram reel link as argument in Reel Module
+        #     insta_reel = Reel(file)
+        #     # Using scrape function and passing the headers
+        #     # insta_reel.scrape(headers=headers)
+        #     insta_reel.scrape()
+        #     # Giving path where we want to download reel to the
+        #     # download function
+        #     # insta_reel.download(fp=f".\\Desktop\\reel{int(time.time())}.mp4")
+        #     insta_reel.download(".\\videos\\"+self.link_dic["label"]+"\\"+self.link_dic["label"]+str(idx)+".mp4")
+        #     print(idx)
+
+        # printing success Message
+        print('Downloaded Successfully.')
+
+    def get_joints(self):
+        # For static images:
+        global_array=[]
+        dir_path = "c:/Users/OWNER/Desktop/2022_ynu/dance_distinguisher/code/"
+        for id, ele in enumerate(self.link_dic):
+            IMAGE_FILES = [(dir_path+"videos/"+self.link_dic[id]["label"]+"/"+video) for video in listdir(".\\videos\\"+self.link_dic[id]["label"])]
+            with mp_pose.Pose(
+                static_image_mode=False,
+                model_complexity=1,
+                enable_segmentation=False,
+                min_detection_confidence=0.5) as pose:
+                for idx, file in enumerate(IMAGE_FILES):
+                    label = 0
+                    video = cv2.VideoCapture(file)
+                    coordinates=[]
+                    while(video.isOpened()):
+                        ret, frame = video.read()
+                        if not ret:
+                            break
+                        results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                        if results.pose_landmarks:
+                            # for poseLM in results.pose_landmarks: # for model_complexity bigger than 1
+                            coordinate = []
+                            for id, lm in enumerate(results.pose_landmarks.landmark):
+                                coordinate.append(lm.x)
+                                coordinate.append(lm.y)
+                        coordinates.append(coordinate)
+                        # frame.flags.writeable = True
+                        # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                        # mp_drawing.draw_landmarks(
+                        #     frame, 
+                        #     results.pose_landmarks,
+                        #     mp_pose.POSE_CONNECTIONS,
+                        #     landmark_drawing_spec = mp_drawing_styles.get_default_pose_landmarks_style()
+                        # )
+                        # cv2.imshow('mp', cv2.flip(frame,1))
+                        # if cv2.waitKey(5) & 0xFF == 27:
+                        #     break
+                    data = {
+                        "fname" : file,
+                        "coordinates" : coordinates,
+                        "label" : label
+                    }
+                    global_array.append(data)
+                    video.release()
+                    print(file + " done")
+        return global_array
+
+# DataDownloader().video_download()
+
+# with open('resources.json') as f:
+#     data = json.load(f)
+#     DataDownloader(data[1]).video_download()
+with open('resources.json') as f:
+    data = json.load(f)
+    global_array = DataDownloader(data).get_joints()
+
+# write data in a pickle file
+with open("video_data.pkl", "wb") as f:
+    pickle.dump(global_array, f)
+    
+# write data in a json file
+with open("video_data.json", "w") as f:
+    json.dump(global_array, f, indent=4)
+
+# with open("video_data.pkl", "rb") as f:
+#     f_data = pickle.load(f)
+#     for video in global_array:
+#         f_data.append(video)
+
+# with open("video_data.pkl", "wb") as f:
+#     f.seek(0)
+#     pickle.dump(f_data, f)
+
+# with open("video_data.json", "r+") as f:
+#     f_data = json.load(f)
+#     for video in global_array:
+#         f_data.append(video)
+#     f.seek(0)
+#     json.dump(f_data, f, indent=4)
